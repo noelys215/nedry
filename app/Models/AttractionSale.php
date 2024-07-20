@@ -8,4 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class AttractionSale extends Model
 {
     use HasFactory;
+
+    protected $fillable = ['attraction_id', 'date', 'quantity', 'total_revenue'];
+
+    public function attraction()
+    {
+        return $this->belongsTo(Attraction::class);
+    }
 }

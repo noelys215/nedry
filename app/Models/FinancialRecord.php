@@ -8,4 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class FinancialRecord extends Model
 {
     use HasFactory;
+
+    protected $fillable = ['record_type', 'amount', 'description', 'date'];
 }

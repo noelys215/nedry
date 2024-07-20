@@ -8,4 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class TicketSale extends Model
 {
     use HasFactory;
+
+    protected $fillable = ['date', 'ticket_type', 'quantity', 'price', 'total_revenue'];
 }
