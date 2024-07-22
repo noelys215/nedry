@@ -7,28 +7,24 @@ use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
-    public function login(Request $request)
+    // Fetch the authenticated user's details
+    public function show(Request $request)
     {
-        $credentials = $request->only('email', 'password');
-
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            $token = $user->createToken('API Token')->plainTextToken;
-
-            return response()->json([
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ]);
-        }
-
-        return response()->json(['error' => 'Unauthorized'], 401);
+        return response()->json($request->user());
     }
 
-    public function logout(Request $request)
+    // Update the authenticated user's details
+    public function update(Request $request)
     {
-        $request->user()->tokens()->delete();
+        $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $request->user()->id,
+        ]);
 
-        return response()->json(['message' => 'Successfully logged out']);
+        $user = $request->user();
+        $user->update($request->only('first_name', 'last_name', 'email'));
+
+        return response()->json(['message' => 'User updated successfully']);
     }
-
 }
