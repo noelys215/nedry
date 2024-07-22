@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -21,21 +23,21 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
+        $defaultRole = Role::where('name', 'new employee')->first();
+
         $user = User::create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role_id' => $defaultRole->id,
         ]);
 
-        event(new Registered($user)); // Trigger the email verification
+        event(new Registered($user));
 
-        $token = $user->createToken('API Token')->plainTextToken;
+        Auth::login($user);
 
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+        return redirect()->route('verification.notice');
     }
 
     // Login an existing user
@@ -51,26 +53,22 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
             if (!$user->hasVerifiedEmail()) {
-                return response()->json(['error' => 'Email not verified'], 403);
+                Auth::logout();
+                return redirect()->route('verification.notice')->withErrors(['email' => 'You need to verify your email address.']);
             }
 
-            $token = $user->createToken('API Token')->plainTextToken;
-
-            return response()->json([
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ]);
+            return redirect()->route('dashboard');
         }
 
-        return response()->json(['error' => 'Unauthorized'], 401);
+        return back()->withErrors(['email' => 'The provided credentials do not match our records.']);
     }
 
     // Logout the user (revoke the token)
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        Auth::logout();
 
-        return response()->json(['message' => 'Successfully logged out']);
+        return redirect()->route('login');
     }
 
     // Send password reset link
@@ -104,8 +102,6 @@ class AuthController extends Controller
                 ])->save();
 
                 $user->tokens()->delete();
-
-                // optionally fire an event here to notify the user of the password change.
             }
         );
 
@@ -142,3 +138,4 @@ class AuthController extends Controller
         return response()->json(['message' => 'Email successfully verified'], 200);
     }
 }
+
