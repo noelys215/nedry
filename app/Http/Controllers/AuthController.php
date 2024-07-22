@@ -2,8 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
 {
@@ -23,6 +27,8 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        event(new Registered($user)); // Trigger the email verification
 
         $token = $user->createToken('API Token')->plainTextToken;
 
@@ -44,6 +50,10 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
+            if (!$user->hasVerifiedEmail()) {
+                return response()->json(['error' => 'Email not verified'], 403);
+            }
+
             $token = $user->createToken('API Token')->plainTextToken;
 
             return response()->json([
@@ -95,7 +105,7 @@ class AuthController extends Controller
 
                 $user->tokens()->delete();
 
-                // You can optionally fire an event here to notify the user of the password change.
+                // optionally fire an event here to notify the user of the password change.
             }
         );
 
@@ -104,4 +114,31 @@ class AuthController extends Controller
             : response()->json(['email' => [__($status)]], 422);
     }
 
+    // Resend verification email
+    public function resendVerificationEmail(Request $request)
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified'], 200);
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return response()->json(['message' => 'Verification email resent'], 200);
+    }
+
+    // Verify email
+    public function verifyEmail($id, Request $request)
+    {
+        $user = User::findOrFail($id);
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified'], 200);
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new Verified($user));
+        }
+
+        return response()->json(['message' => 'Email successfully verified'], 200);
+    }
 }
